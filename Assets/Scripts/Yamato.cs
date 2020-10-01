@@ -1,16 +1,16 @@
-﻿using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.InputSystem.Controls;
 
-public class MovingSphere : MonoBehaviour
+public class Yamato : MonoBehaviour
 {
     private LayerMask probeMask = -1;
 
     [SerializeField, Range(0f, 100f)] private float maxSpeed = 10f;
 
     [SerializeField, Range(0f, 100f)] private float maxAcceleration = 10f;
+
+    [SerializeField, Range(0f, 100f)] private float maxDeacceleration = 1f;
 
     [SerializeField, Range(0f, 100f)] private float maxAirAcceleration = 1f;
 
@@ -25,6 +25,8 @@ public class MovingSphere : MonoBehaviour
     [SerializeField, Min(0f)] private float probeDistance = 1f;
 
     [SerializeField] private Transform playerInputSpace = default;
+    
+    [SerializeField, Range(0f, 100f)] private float baseSpeed = 20f;
     
     private int jumpPhase;
 
@@ -121,7 +123,15 @@ public class MovingSphere : MonoBehaviour
         playerInput.x = Input.GetAxis("Horizontal");
         playerInput.y = Input.GetAxis("Vertical");
         desiredJump |= Input.GetButtonDown("Jump");
+
+        float forwardSpeed = 1f;
+        if (Input.GetButton("Charge"))
+        {
+            Debug.Log("Slowing");
+            forwardSpeed = 0f;
+        }
         playerInput = Vector2.ClampMagnitude(playerInput, 1f);
+
         if (playerInputSpace)
         {
             Vector3 forward = playerInputSpace.forward;
@@ -130,11 +140,11 @@ public class MovingSphere : MonoBehaviour
             Vector3 right = playerInputSpace.right;
             right.y = 0f;
             right.Normalize();
-            desiredVelocity = (forward * playerInput.y + right * playerInput.x) * maxSpeed;
+            desiredVelocity = (forward * forwardSpeed + right * playerInput.x) * maxSpeed;
         }
         else
         {
-            desiredVelocity = new Vector3(playerInput.x, 0f, playerInput.y) * maxSpeed;    
+            desiredVelocity = new Vector3(playerInput.x, 0f, forwardSpeed) * maxSpeed;    
         }
     }
 
@@ -214,11 +224,23 @@ public class MovingSphere : MonoBehaviour
 
         float acceleration = OnGround ? maxAcceleration : maxAirAcceleration;
         float maxSpeedChange = acceleration * Time.deltaTime;
-
+        
         float newX = Mathf.MoveTowards(currentX, desiredVelocity.x, maxSpeedChange);
         float newZ = Mathf.MoveTowards(currentZ, desiredVelocity.z, maxSpeedChange);
+        
+        Vector3 currentNorm = velocity.normalized;
+        Vector3 desiredNew = velocity + xAxis * (newX - currentX) + zAxis * (newZ - currentZ);
+        Vector3 desiredProjection = Vector3.Project(desiredNew, currentNorm);
 
-        velocity += xAxis * (newX - currentX) + zAxis * (newZ - currentZ);
+        Vector3 currentDeceleration = velocity - desiredProjection;
+        float currentDecelerationMagnitude = currentDeceleration.magnitude;
+        float maxSpeedDecrease = maxDeacceleration * Time.deltaTime;
+        if (currentDecelerationMagnitude > maxSpeedDecrease)
+        {
+            desiredNew += desiredProjection.normalized * (currentDecelerationMagnitude - maxSpeedDecrease);
+        }
+
+        velocity = desiredNew;
     }
 
     Vector3 ProjectOnContactPlane(Vector3 vector)
