@@ -140,11 +140,22 @@ public class Yamato : MonoBehaviour
             Vector3 right = playerInputSpace.right;
             right.y = 0f;
             right.Normalize();
-            desiredVelocity = (forward * forwardSpeed + right * playerInput.x) * maxSpeed;
-        }
-        else
-        {
-            desiredVelocity = new Vector3(playerInput.x, 0f, forwardSpeed) * maxSpeed;    
+            
+            Vector3 xAxis = ProjectOnContactPlane(Vector3.right).normalized;
+            Vector3 zAxis = ProjectOnContactPlane(Vector3.forward).normalized;
+
+            float currentX = Vector3.Dot(velocity, xAxis);
+            float currentZ = Vector3.Dot(velocity, zAxis);
+            if (playerInput.x < 0)
+            {
+                Vector2 counterclockwise = Vector2.Perpendicular(new Vector2(currentX, currentZ)) * (maxSpeed * playerInput.x);
+                desiredVelocity = forward * (forwardSpeed * baseSpeed) + new Vector3(counterclockwise.x, 0f, counterclockwise.y);
+            }
+            else
+            {
+                Vector2 counterclockwise = Vector2.Perpendicular(new Vector2(currentX, currentZ)) * (maxSpeed * playerInput.x);
+                desiredVelocity = forward * (forwardSpeed * baseSpeed) + new Vector3(counterclockwise.x, 0f, -counterclockwise.y);
+            }
         }
     }
 
